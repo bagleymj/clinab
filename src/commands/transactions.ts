@@ -128,9 +128,10 @@ Examples:
         transactions = result.transactions;
       }
 
-      // Filter deleted and apply limit
+      // Filter deleted, sort most recent first, apply limit
       transactions = transactions
         .filter((t) => !t.deleted)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.amount - a.amount)
         .slice(0, parseInt(opts.limit));
 
       if (isJsonMode()) {
