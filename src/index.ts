@@ -42,7 +42,7 @@ Budget Selection:
   )
   .option(
     "-b, --budget <budget>",
-    'Budget name or ID (default: "last-used")',
+    "Budget name or ID",
     "last-used"
   )
   .option("--json", "Output as JSON (for scripting and AI agents)", false)
@@ -88,15 +88,21 @@ program.exitOverride();
 try {
   await program.parseAsync(process.argv);
 } catch (err: unknown) {
+  // Commander throws for --help and --version with exitOverride
+  if (err && typeof err === "object" && "code" in err) {
+    const code = (err as { code: string }).code;
+    if (
+      code === "commander.helpDisplayed" ||
+      code === "commander.version"
+    ) {
+      process.exit(0);
+    }
+  }
   if (err instanceof YnabApiError) {
     printError(`API Error (${err.statusCode}): ${err.detail}`);
     process.exit(1);
   }
   if (err instanceof Error) {
-    // Commander throws for --help and --version, which is fine
-    if (err.message.includes("(outputHelp)") || err.message.includes("(version)")) {
-      process.exit(0);
-    }
     printError(err.message);
     process.exit(1);
   }
