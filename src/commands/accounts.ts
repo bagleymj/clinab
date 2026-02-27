@@ -4,6 +4,7 @@ import type { AccountType } from "../types/ynab.ts";
 import { colorAmount, printTable, printDetail, printJson, printSuccess, isJsonMode } from "../formatters/output.ts";
 import { formatCurrency } from "../formatters/currency.ts";
 import { amountToMilliunits } from "../formatters/currency.ts";
+import chalk from "chalk";
 
 const ACCOUNT_TYPES: AccountType[] = [
   "checking",
@@ -20,6 +21,10 @@ const ACCOUNT_TYPES: AccountType[] = [
   "medicalDebt",
   "otherDebt",
 ];
+
+const ASSET_TYPES = new Set<string>([
+  "checking", "savings", "cash", "otherAsset",
+]);
 
 function getBudgetId(command: Command): string {
   let parent = command.parent;
@@ -61,9 +66,25 @@ Examples:
         return;
       }
 
+      // Detect duplicate names so we can show short IDs
+      const nameCounts = new Map<string, number>();
+      for (const a of filtered) {
+        nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1);
+      }
+
       printTable(
         [
-          { header: "Name", key: "name" },
+          {
+            header: "Name",
+            key: "name",
+            formatter: (v, row) => {
+              const name = String(v);
+              const shortId = String(row.id ?? "").slice(0, 8);
+              return (nameCounts.get(name) ?? 0) > 1
+                ? `${name} ${chalk.dim(`(${shortId})`)}`
+                : name;
+            },
+          },
           { header: "Type", key: "type" },
           { header: "Balance", key: "balance", align: "right", formatter: (v) => colorAmount(v as number) },
           { header: "Cleared", key: "cleared_balance", align: "right", formatter: (v) => colorAmount(v as number) },
@@ -71,6 +92,7 @@ Examples:
           { header: "On Budget", key: "on_budget", formatter: (v) => (v ? "✓" : "—") },
         ],
         filtered.map((a) => ({
+          id: a.id,
           name: a.name,
           type: a.type,
           balance: a.balance,
@@ -79,6 +101,24 @@ Examples:
           on_budget: a.on_budget,
         }))
       );
+
+      // Print account summary
+      if (filtered.length > 0) {
+        const assets = filtered
+          .filter((a) => ASSET_TYPES.has(a.type))
+          .reduce((sum, a) => sum + a.balance, 0);
+        const liabilities = filtered
+          .filter((a) => !ASSET_TYPES.has(a.type))
+          .reduce((sum, a) => sum + a.balance, 0);
+        const net = assets + liabilities;
+
+        console.log(
+          `\n  ${chalk.dim(`${filtered.length} accounts`)}  ` +
+            `Assets: ${chalk.green(formatCurrency(assets))}  ` +
+            `Liabilities: ${chalk.red(formatCurrency(liabilities))}  ` +
+            `Net: ${colorAmount(net)}`
+        );
+      }
     });
 
   cmd

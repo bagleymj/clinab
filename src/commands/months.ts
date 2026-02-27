@@ -8,6 +8,7 @@ import {
   isJsonMode,
 } from "../formatters/output.ts";
 import { formatCurrency } from "../formatters/currency.ts";
+import chalk from "chalk";
 
 function getBudgetId(command: Command): string {
   let parent = command.parent;
@@ -122,8 +123,31 @@ Examples:
         const cats = detail.categories.filter(
           (c) => !c.deleted && !c.hidden && c.name !== "Inflow: Ready to Assign" && c.name !== "Uncategorized"
         );
+
+        // Group by category_group_name and sort groups
+        const grouped = new Map<string, typeof cats>();
+        for (const cat of cats) {
+          const group = cat.category_group_name ?? "Other";
+          if (!grouped.has(group)) grouped.set(group, []);
+          grouped.get(group)!.push(cat);
+        }
+
+        const rows: Record<string, unknown>[] = [];
+        for (const [group, groupCats] of grouped) {
+          for (const c of groupCats) {
+            rows.push({
+              group,
+              name: c.name,
+              budgeted: c.budgeted,
+              activity: c.activity,
+              balance: c.balance,
+            });
+          }
+        }
+
         printTable(
           [
+            { header: "Group", key: "group", formatter: (v) => chalk.dim(String(v)) },
             { header: "Category", key: "name" },
             {
               header: "Budgeted",
@@ -144,12 +168,7 @@ Examples:
               formatter: (v) => colorAmount(v as number),
             },
           ],
-          cats.map((c) => ({
-            name: c.name,
-            budgeted: c.budgeted,
-            activity: c.activity,
-            balance: c.balance,
-          }))
+          rows
         );
       }
     });

@@ -151,6 +151,23 @@ Examples:
           memo: t.memo,
         }))
       );
+
+      // Print summary totals
+      if (transactions.length > 0) {
+        const inflows = transactions
+          .filter((t) => t.amount > 0)
+          .reduce((sum, t) => sum + t.amount, 0);
+        const outflows = transactions
+          .filter((t) => t.amount < 0)
+          .reduce((sum, t) => sum + t.amount, 0);
+        const net = inflows + outflows;
+        console.log(
+          `\n  ${chalk.dim(`${transactions.length} transactions`)}  ` +
+            `Inflows: ${chalk.green(formatCurrency(inflows))}  ` +
+            `Outflows: ${chalk.red(formatCurrency(outflows))}  ` +
+            `Net: ${colorAmount(net)}`
+        );
+      }
     });
 
   cmd
@@ -219,7 +236,7 @@ Examples:
     .option("-c, --category <category>", "Category name or ID")
     .option("-m, --memo <memo>", "Transaction memo")
     .option("-d, --date <date>", "Transaction date (YYYY-MM-DD, default: today)")
-    .option("--cleared <status>", "cleared, uncleared, or reconciled", "cleared")
+    .option("--cleared <status>", "cleared, uncleared, or reconciled", "uncleared")
     .option("--approved", "Approve the transaction", true)
     .option("--flag <color>", "Flag color: red, orange, yellow, green, blue, purple")
     .action(async (amount: string, opts, command) => {
@@ -249,8 +266,11 @@ Examples:
         printJson(result);
         return;
       }
+
+      const txnId = result.transaction_ids?.[0] ?? "";
+      const payeeLabel = opts.payee ? ` at "${opts.payee}"` : "";
       printSuccess(
-        `Created transaction: ${formatCurrency(milliunits)} at "${opts.payee ?? "unknown"}" on ${date}`
+        `Created transaction: ${formatCurrency(milliunits)}${payeeLabel} on ${date} (${txnId})`
       );
     });
 
